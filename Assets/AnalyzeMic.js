@@ -59,30 +59,25 @@ function CopyData(data : float[]) {
 	}
 }
 
-function GetFundamentalFreqEstimate () {
+function DoFFT() {
 	source.GetSpectrumData(freqDataRaw, 0, FFTWindow.Hamming);
-	CopyData(freqDataRaw);  // unnecessary for now
+}
+
+function GetFundamentalFreqEstimate () {
+	// CopyData(freqDataRaw);  // unnecessary for now
+	DoFFT();
 	var bin : int;
 	var maxBin : float = -1.0;
 	var maxVal = 0.0;
-	var copyWeight = 0.5;
+	var foundFirstPeak = false;
 	for (bin=0; bin < freqDataRaw.Length / 2; bin++) {
-		var d = freqDataRaw[bin];
-		var logb = Mathf.Log(bin, 2);
-		var dampening : float = 1 / logb;
-		if (maxBin >= 0) {
-			// suppress bins close to multiples of the last peak found
-			var ratio = bin / maxBin;
-			if (Mathf.Abs(ratio - Mathf.Round(ratio)) < 0.1) {
-				dampening *= 0.1;
-			}
-		}
-		if (d * dampening > maxVal) {
+		var dampening : float = 1 / Mathf.Log(bin, 2);
+		var d = Mathf.Log(freqDataRaw[bin] / 0.001, 2) * dampening;
+		if (d > maxVal) {
 			maxBin = parseFloat(bin);
 			maxVal = d;
 		}
-		freqData[bin] = freqData[bin] * (1 - copyWeight) + d * dampening * copyWeight;
-		// sum += y;
+		freqData[bin] = d;
 	}
 
 	for (bin=0; bin < freqDataRaw.Length / 2; bin++) {
@@ -91,13 +86,11 @@ function GetFundamentalFreqEstimate () {
 
 	var x = 0.0;
 	for (bin=0; bin < freqData.Length / 2; bin++) {
-		var y = 100 * freqData[bin];
-		if (bin == maxBin) {
-			Debug.DrawLine(Vector3(x, 0, 0), Vector3(x, y, 0), Color.green);
-		} else {
-			Debug.DrawLine(Vector3(x, 0, 0), Vector3(x, y, 0), Color.white);
-		}
-		x += 0.003;
+		var y = 1 * freqData[bin];
+		var color = (bin == maxBin) ? Color.green : Color.white;
+		color.a = 0.1;
+		Debug.DrawLine(Vector3(x, 0, 0), Vector3(x, y, 0), color);
+		x += 0.01;
 	}
-	return BinToHz(maxBin);
+	return maxBin < 0 ? 0 : BinToHz(maxBin);
 }
